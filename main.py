@@ -3,11 +3,24 @@ import sys
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from call_function import available_functions, call_function
+
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
-verbose = False
+verbose_flag = False
 n = len(sys.argv)
+model_name = 'gemini-2.0-flash-001'
+system_prompt = """
+You are a helpful AI coding agent.
+
+When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
+
+- List files and directories
+
+All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+""" 
+
 
 if n > 1:
     user_prompt = sys.argv[1]
@@ -17,7 +30,7 @@ else:
 
 for i in range(1, n):
     if sys.argv[i] == "--verbose":
-        verbose = True
+        verbose_flag = True
 
 client = genai.Client(api_key=api_key)
 
@@ -26,11 +39,22 @@ messages = [
 ]
 
 response = client.models.generate_content(
-    model='gemini-2.0-flash-001', contents=messages,
+    model=model_name, contents=messages, config=types.GenerateContentConfig(
+        tools=[available_functions], system_instruction=system_prompt
+        ),
 )
-print(response.text)
+if response.function_calls:
+    for function_call_part in response.function_calls:
+        function_call_result = call_function(function_call_part, verbose_flag)
+        if function_call_result.parts[0].function_response.response:
+            if verbose_flag == True:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+        else:
+            raise Exception("Response was empty")
+else:
+    print(response.text)
 
-if verbose:
+if verbose_flag:
     print("Prompt:", user_prompt)
     print("Prompt tokens:", response.usage_metadata.prompt_token_count)
     print("Response tokens:", response.usage_metadata.candidates_token_count)

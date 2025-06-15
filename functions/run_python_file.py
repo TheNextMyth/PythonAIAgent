@@ -1,5 +1,7 @@
 import os
 import subprocess
+from google.genai import types
+
 
 def run_python_file(working_directory, file_path):
     abs_working_dir = os.path.abspath(working_directory)
@@ -23,3 +25,17 @@ def run_python_file(working_directory, file_path):
         return f'Error: executing Python file: {e}'
     else:
         return f'STDOUT: {result.stdout}, STDERR: {result.stderr}'
+
+schema_run_python_file = types.FunctionDeclaration(
+    name="run_python_file",
+    description="Runs a python file",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The file path to the Python file we want to run",
+            ),
+        },
+    ),
+)    
