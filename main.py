@@ -10,6 +10,7 @@ load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 verbose_flag = False
 n = len(sys.argv)
+max_calls = 20 
 model_name = 'gemini-2.0-flash-001'
 system_prompt = """
 You are a helpful AI coding agent.
@@ -38,21 +39,28 @@ messages = [
     types.Content(role="user", parts=[types.Part(text=user_prompt)]),
 ]
 
-response = client.models.generate_content(
-    model=model_name, contents=messages, config=types.GenerateContentConfig(
-        tools=[available_functions], system_instruction=system_prompt
-        ),
-)
-if response.function_calls:
-    for function_call_part in response.function_calls:
-        function_call_result = call_function(function_call_part, verbose_flag)
-        if function_call_result.parts[0].function_response.response:
-            if verbose_flag == True:
-                print(f"-> {function_call_result.parts[0].function_response.response}")
-        else:
-            raise Exception("Response was empty")
-else:
-    print(response.text)
+for i in range(1, max_calls):
+    response = client.models.generate_content(
+        model=model_name, contents=messages, config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+            ),
+    )
+    if response.function_calls:
+        for function_call_part in response.function_calls:
+            function_call_result = call_function(function_call_part, verbose_flag)
+            messages.append(function_call_result.parts[0])
+            if function_call_result.parts[0].function_response.response:
+                if verbose_flag == True:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
+            else:
+                raise Exception("Response was empty")
+    else:
+        print(response.text)
+        break
+    for candidate in response.candidates:
+        if candidate.content:
+            messages.append(candidate.content)
+
 
 if verbose_flag:
     print("Prompt:", user_prompt)
